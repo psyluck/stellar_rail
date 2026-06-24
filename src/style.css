@@ -1,0 +1,41 @@
+/* CenDTrus Remit — Global Styles */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─── Base Overrides ─────────────────────────────────────────────────────── */
+@layer base {
+  * {
+    @apply box-border;
+  }
+  body {
+    @apply bg-mint text-navy font-display;
+    font-feature-settings: "kern" 1, "liga" 1, "calt" 1;
+  }
+  /* Financial monospace data — used throughout dashboard panels */
+  .font-finance {
+    font-family: 'JetBrains Mono', 'Fira Code', ui-monospace, monospace;
+  }
+}
+
+/* ─── Component Utilities ────────────────────────────────────────────────── */
+@layer components {
+  /* Standard navy card container */
+  .card-navy {
+    @apply bg-navy rounded-2xl shadow-navy-card border border-navy-border;
+  }
+  /* Live status indicator dot */
+  .status-dot {
+    @apply w-2 h-2 rounded-full inline-block;
+  }
+  /* Emerald "secure" pulse ring */
+  .ring-live {
+    @apply ring-2 ring-emerald-accent ring-offset-2 ring-offset-navy animate-live-pulse;
+  }
+}
+
+/* ─── Scrollbar Styling (webkit) ─────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: #0F172A; }
+::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #10B981; }

@@ -1,0 +1,52 @@
+{
+  "name": "centdrus-remit-stellar-rail",
+  "version": "1.0.0",
+  "description": "CenDTrus Remit — Stellar Settlement Rail for the StellarX / Stellar Hacks: Real-World ZK Hackathon 2026. Non-custodial, sub-3s finality, SME/retail cross-border remittance.",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
+    "dev:client": "vite",
+    "dev:server": "ts-node-esm server.ts",
+    "build": "vue-tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "type-check": "vue-tsc --noEmit"
+  },
+  "dependencies": {
+    "@stellar/stellar-sdk": "^12.3.0",
+    "axios": "^1.7.2",
+    "cors": "^2.8.5",
+    "dotenv": "^17.4.2",
+    "express": "^4.19.2",
+    "vue": "^3.4.27"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.14.0",
+    "@vitejs/plugin-vue": "^5.0.5",
+    "autoprefixer": "^10.4.19",
+    "concurrently": "^8.2.2",
+    "postcss": "^8.4.38",
+    "tailwindcss": "^3.4.4",
+    "ts-node": "^10.9.2",
+    "tsx": "^4.22.4",
+    "typescript": "^5.4.5",
+    "vite": "^5.2.13",
+    "vue-tsc": "^2.0.21"
+  },
+  "keywords": [
+    "stellar",
+    "cross-border",
+    "remittance",
+    "non-custodial",
+    "usdc",
+    "rlusd",
+    "fintech",
+    "centrus",
+    "hackathon",
+    "zk"
+  ],
+  "author": "CenTrus Inc. — Darren Mores, Founder & Lead Architect",
+  "license": "MIT"
+}
