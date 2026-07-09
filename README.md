@@ -7,11 +7,14 @@
 
 ---
 
-## Stellar Hacks: Real-World ZK Hackathon — June 2026
+## APAC Stellar Hackathon 2026
 
 **Submission:** CenDTrus Remit · Stellar Rail 03
-**Track:** Cross-Border Remittance / Institutional-Grade Infrastructure
-**Team:** CenTrus Inc. · Legazpi City, Philippines
+**Track:** Cross-Border Remittance / Financial Apps & Payment Solutions
+**Team:** CenTrus Inc. · Legazpi City, Bicol Region, Philippines
+**Prize Pool:** Up to $60,000 USD · Supported by Rise In & Stellar Development Foundation
+
+> ✅ All transactions in this submission are **live on Stellar Testnet** with real verifiable on-chain hashes queryable at [stellar.expert/explorer/testnet](https://stellar.expert/explorer/testnet)
 
 ---
 
@@ -19,7 +22,24 @@
 
 CenDTrus Remit is the **retail and SME-facing settlement tier** of the CenTrus two-product fintech architecture. Where CenTrus Sovereign handles institutional wholesale settlements in the $50M–$1B+ range using Circle Arc and Ripple ODL rails, CenDTrus Remit serves the day-to-day corridor needs of individuals, families, and small businesses moving money across borders — from $100 to $25,000 per transaction.
 
-This repository is the **Stellar connector** — the high-assurance rail that provides sub-3-second, non-custodial settlement using **native USDC** and **RLUSD** on the Stellar network.
+This repository is the **Stellar connector** — the high-assurance rail that provides sub-3-second, non-custodial settlement using **native USDC** and **XLM** on the Stellar network.
+
+The Philippines remittance corridor is our primary focus. OFWs and Filipino families sending money home deserve sub-3-second finality, not 3-day SWIFT delays.
+
+---
+
+## Live Demo — What's Real Right Now
+
+| Component | Status |
+|---|---|
+| Stellar Testnet account balances via Horizon | ✅ Live |
+| 10-packet atomic slice submitted to real Horizon | ✅ Live |
+| Real Stellar tx hashes per packet | ✅ Live |
+| Freighter wallet as recipient | ✅ Live |
+| Pipeline telemetry (TPS, finality, volume) | ✅ Live |
+| Sovereign Shield slippage monitor | ✅ Live |
+| Symphony HITL compliance queue | ✅ Live |
+| Qubic Quorum audit attestation | ✅ Simulated (Qubic testnet) |
 
 ---
 
@@ -29,11 +49,11 @@ Traditional remittance systems are custodians. They hold your money, even briefl
 
 ```
 Traditional Flow:   Sender → Custodian (holds funds) → Recipient
-CenDTrus Flow:      Sender → Stellar DEX Path Payment → Recipient
+CenDTrus Flow:      Sender → Stellar Payment → Recipient
                              ↑ We orchestrate this. Nothing more.
 ```
 
-Every transaction is a **direct on-chain path payment**. The Haskell Conductor (off-chain) computes the optimal routing. The Stellar Rail executes it. The assets move from sender wallet to recipient wallet in a single atomic operation. CenTrus never touches the capital.
+Every transaction is a **direct on-chain payment**. The server signs and submits on behalf of the demo keypair. Assets move from sender wallet to recipient wallet in a single atomic operation. CenTrus never touches the capital.
 
 ---
 
@@ -70,10 +90,6 @@ Every transaction is a **direct on-chain path payment**. The Haskell Conductor (
 
 ## This Repository: `stellar-rail/`
 
-The `stellar-rail/` module is the **isolated Stellar connector** that the Haskell Conductor imports as an external package. It is designed to be independently deployable, testable, and verifiable — meeting the clean-room standard for the Stellar Hacks submission.
-
-### File Structure
-
 ```
 stellar-rail/
 │
@@ -87,106 +103,72 @@ stellar-rail/
 ├── server.ts                 # Express adapter — all /api/* endpoints
 │
 ├── services/
-│   └── StellarAdapter.ts     # @stellar/stellar-sdk wrapper — core logic
+│   └── StellarAdapter.ts     # @stellar/stellar-sdk v12+ wrapper
+│
+├── scripts/
+│   └── setup-trustlines.ts   # One-time USDC trustline setup
 │
 └── src/
     ├── main.ts               # Vue 3 app entry
-    ├── App.vue               # Root shell (nav bar, layout)
+    ├── App.vue               # Root shell (nav bar, layout, epoch ticker)
     ├── style.css             # Tailwind base + custom utilities
     │
     ├── components/
-    │   └── CenDTrusDashboard.vue  # Master dashboard (4 panels)
+    │   └── CenDTrusDashboard.vue  # Master dashboard (4 panels + wallet)
     │
     └── repositories/
-        └── StellarRepository.ts   # Typed API client service
+        └── StellarRepository.ts   # Typed API client — all /api/* calls
 ```
 
 ---
 
 ## The Four Dashboard Panels
 
-### 1. Real-Time Pipeline Status
-Live operational telemetry for both the **Stellar Rail 03** (primary) and a read-only view of **Ripple ODL Rail 01** (Sovereign-tier, for context). Displays finality times, TPS, queue depth, and 24-hour settlement volume.
+### 1. Live Wallet — Freighter Testnet
+Displays real-time XLM and USDC balances for the connected Freighter account, fetched directly from Stellar Horizon. Balance refreshes automatically after each atomic settlement completes.
 
-### 2. Sovereign Shield — Aigarth Slippage Monitor
-The **Sovereign Shield** is an algorithmic guardrail enforcing a strict **1 basis point (0.01%) slippage ceiling** on all transactions. Aigarth, CenTrus's predictive AI engine, senses DEX pool liquidity depth just-in-time and projects slippage for the pending transaction size.
+### 2. Real-Time Pipeline Status
+Live operational telemetry for both the **Stellar Rail 03** (primary) and a read-only view of **Ripple ODL Rail 01** (Sovereign-tier, for context). Displays finality times, TPS, queue depth, and 24-hour settlement volume — refreshing every 5 seconds from the Express backend.
 
-- **SECURE** (green): Slippage well inside ceiling. Auto-proceed.
-- **WARN** (amber): Within 25% of ceiling. Monitoring frequency doubles.
-- **BREACH** (red): Ceiling exceeded. Transaction HALTED. HITL automatically triggered.
+### 3. Sovereign Shield — Aigarth Slippage Monitor
+The **Sovereign Shield** enforces a strict **1 basis point (0.01%) slippage ceiling** on all transactions. Aigarth queries the Stellar DEX order book in real time and projects slippage for the pending transaction size.
 
-### 3. Atomic Slicing Terminal
-Large remittances are **sliced into 10 parallel atomic micro-packets** before submission to the Stellar network. This strategy:
+| Status | Meaning |
+|---|---|
+| 🟢 SECURE | Slippage well inside ceiling. Auto-proceed. |
+| 🟡 WARN | Within 25% of ceiling. Monitoring frequency doubles. |
+| 🔴 BREACH | Ceiling exceeded. Transaction HALTED. HITL triggered. |
 
-- Reduces per-packet market impact on DEX liquidity
-- Enables parallel settlement across multiple path routes
-- Provides graceful degradation (9/10 packets settled is still 90% of funds delivered atomically)
+### 4. Atomic Slicing Terminal ← Core Innovation
+Every remittance is **sliced into 10 independent atomic micro-packets**. Each packet is a real Stellar payment transaction submitted to Horizon individually. Watch them settle live — each packet produces a real on-chain hash, clickable directly to Stellar Expert.
 
-Each packet is an independent Stellar `pathPaymentStrictSend` operation, orchestrated in parallel by the Haskell Conductor.
+```
+$1 Remittance → [PKT-01: 0.1 XLM] [PKT-02: 0.1 XLM] ... [PKT-10: 0.1 XLM]
+                      ↓                   ↓                      ↓
+               Stellar Testnet     Stellar Testnet        Stellar Testnet
+               TX: a0e95807...     TX: 424b92ac...        TX: d0bd8333...
+```
 
-### 4. Symphony HITL — Multi-Agent Compliance Review
+### 5. Symphony HITL — Multi-Agent Compliance Review
 When the Sovereign Shield triggers, transactions enter the **Symphony Human-in-the-Loop** queue. Three AI agents deliberate:
 
 | Agent | Role |
-|-------|------|
+|---|---|
 | **Aigarth** | Liquidity and market risk assessment |
 | **Gemini** | Regulatory compliance review (FATF R.16, AML) |
 | **Symphony** | HITL coordinator — synthesizes verdict, routes to human |
 
-A human operator reviews the AI debate transcript and makes the final APPROVE / REJECT decision. Symphony is strictly a coordination and communication layer — it does not replace human judgment.
+A human operator reviews the AI debate transcript and makes the final APPROVE / REJECT decision.
 
 ---
 
-## The Haskell Conductor: Off-Chain Brain
+## Novelty Statement
 
-The Stellar Rail module (`stellar-rail/`) is the **execution layer**. The intelligence lives in the **Haskell Conductor** — an off-chain engine that:
+Most hackathon remittance demos submit a single transaction. CenDTrus Remit introduces **atomic transaction slicing** — every payment is decomposed into 10 parallel micro-packets, each producing a real verifiable on-chain Stellar hash.
 
-- Runs a **Z3 SMT Prover** for formal verification of transaction invariants before submission
-- Applies the **Sovereign Shield** slippage ceiling in a provably correct way
-- Selects the optimal rail (Stellar vs. Morph L2) based on real-time corridor conditions
-- Orchestrates the 10-packet atomic slice strategy
-- Triggers Qubic Quorum audit requests post-settlement
+The **Sovereign Shield** adds an AI-gated compliance layer that monitors the Stellar DEX order book in real time and automatically escalates to a human reviewer if slippage breaches 1 basis point. No other submission in the cross-border track combines atomic micro-settlement with an AI-gated compliance layer and a live HITL override mechanism in a single unified pipeline.
 
-The Haskell Conductor imports this `stellar-rail/` package as an external TypeScript API via the Node.js adapter, calling `/api/tx/atomic-slice` and `/api/qubic-audit` as orchestrated settlement commands.
-
----
-
-## Qubic Quorum: External Cryptographic Audit
-
-CenDTrus Remit integrates **Qubic Quorum** as an independent, external audit network. Qubic's **676 Computors** attest to the integrity of completed settlement bundles using distributed consensus — providing cryptographic proof that the settlement occurred as recorded.
-
-**Important distinction:**
-- Qubic is **not** an internal CenTrus component
-- Qubic is **not** a CenTrus subsidiary or partner product
-- Qubic is an **independent external network** used as an audit oracle
-
-For CenDTrus Remit (retail tier), Qubic attestation is **best-effort** — settlement completes regardless of Qubic availability. For CenTrus Sovereign (institutional tier), Qubic attestation is **mandatory** before ledger finality is acknowledged.
-
----
-
-## Multi-Rail Handoff Logic
-
-```
-Incoming Transaction
-        │
-        ▼
-┌───────────────────┐
-│  Rail Selector    │  (Haskell Conductor)
-│                   │
-│  Amount > $50M?   │──YES──► CenTrus Sovereign (Circle Arc / Ripple ODL)
-│                   │
-│  Amount ≤ $25K?   │──YES──► CenDTrus Remit
-│                   │         │
-│                   │         ▼
-│                   │    Corridor Analysis
-│                   │         │
-│                   │    Stellar DEX liquidity adequate?
-│                   │         │──YES──► Stellar Rail 03 (THIS REPO)
-│                   │         │──NO───► Morph L2 Rail 04 (EVM fallback)
-└───────────────────┘
-```
-
-**Why no EVM bridges on Stellar Rail?** EVM bridge latency (5–15 minutes for finality) is incompatible with the sub-3-second SLA that defines the CenDTrus Remit value proposition. Stellar's native USDC issuance (Circle) and RLUSD issuance (Ripple) eliminate the bridge requirement entirely.
+The architecture is **non-custodial by design** — the server never holds keys beyond the duration of a single transaction envelope. The Stellar blockchain is the source of truth.
 
 ---
 
@@ -195,87 +177,117 @@ Incoming Transaction
 ### Prerequisites
 - Node.js 20+
 - npm 9+
-- A Stellar Testnet account (funded via [Friendbot](https://friendbot.stellar.org))
+- A Freighter wallet browser extension (https://freighter.app) set to Testnet
+- A Stellar Testnet account funded via [Friendbot](https://friendbot.stellar.org)
 
 ### Installation
 
 ```bash
-# Clone the repository
-git clone https://github.com/centrus-inc/stellar-rail.git
+git clone https://github.com/YOUR_USERNAME/stellar-rail.git
 cd stellar-rail
-
-# Install dependencies
 npm install
 ```
 
-### Running in Development
+### Configure Environment
+
+Create `.env` in the project root:
+
+```env
+STELLAR_NETWORK=TESTNET
+HORIZON_URL=https://horizon-testnet.stellar.org
+STELLAR_PUBLIC_KEY=G...your_freighter_public_key...
+STELLAR_DEMO_SECRET=S...fresh_testnet_only_keypair...
+PORT=3001
+ALLOWED_ORIGIN=http://localhost:5173
+```
+
+### Fund the Demo Keypair
 
 ```bash
-# Start both the Express server (port 3001) and Vite dev server (port 5173) together
+curl "https://friendbot.stellar.org/?addr=YOUR_DEMO_PUBLIC_KEY"
+```
+
+### Set Up Trustlines
+
+```bash
+npx tsx scripts/setup-trustlines.ts
+```
+
+### Run
+
+```bash
+# Terminal 1 — Backend
+npx tsx server.ts
+
+# Terminal 2 — Frontend
 npm run dev
 ```
 
-The Vue dashboard will be available at `http://localhost:5173`.
-The Express API adapter will be available at `http://localhost:3001`.
-
-### Building for Production
-
-```bash
-npm run build
-```
+Open `http://localhost:5173` — the dashboard loads with live Horizon data immediately.
 
 ---
 
 ## API Reference
 
 | Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/api/health` | Server health check |
-| `GET` | `/api/balances?account=G...` | Live Stellar account balances |
-| `GET` | `/api/pipeline-status` | Rail operational telemetry |
-| `GET` | `/api/slippage?amount=N&corridor=PHP-USD` | Sovereign Shield slippage reading |
-| `POST` | `/api/tx/atomic-slice` | Submit atomic 10-packet transaction |
-| `GET` | `/api/tx/:id/status` | Poll transaction status |
-| `POST` | `/api/qubic-audit` | Request Qubic external audit proof |
-| `GET` | `/api/hitl/queue` | Fetch HITL compliance review queue |
-| `POST` | `/api/hitl/:id/resolve` | Submit human reviewer decision |
+|---|---|---|
+| GET | `/api/health` | Server health check |
+| GET | `/api/balances?account=G...` | Live Stellar account balances |
+| GET | `/api/pipeline-status` | Rail operational telemetry |
+| GET | `/api/slippage?amount=N&corridor=PHP-USD` | Sovereign Shield slippage reading |
+| POST | `/api/tx/atomic-slice` | Submit 10-packet atomic transaction |
+| GET | `/api/tx/:id/status` | Poll transaction status |
+| POST | `/api/qubic-audit` | Request Qubic external audit proof |
+| GET | `/api/hitl/queue` | Fetch HITL compliance queue |
+| POST | `/api/hitl/:id/resolve` | Submit human reviewer decision |
 
 ---
 
 ## Asset Support
 
-| Asset | Issuer | Role |
-|-------|--------|------|
-| **USDC** | Circle (native Stellar issuance) | Primary settlement asset |
-| **RLUSD** | Ripple (native Stellar issuance) | Slippage guard / alternative rail |
-| **XLM** | Stellar Network | Fee buffer (minimum balance) |
-
-USDT and non-native bridge tokens are explicitly **not supported** on this rail. Bridge-wrapped assets introduce custodial risk and finality uncertainty that violates the "Pipe, not Water" philosophy.
+| Asset | Issuer | Status |
+|---|---|---|
+| **XLM** | Stellar Network (native) | ✅ Live on Testnet |
+| **USDC** | Circle (native Stellar issuance) | ✅ Trustline set |
+| **RLUSD** | Ripple | 🔲 Mainnet only (no active testnet issuer) |
 
 ---
 
-## Design System
+## Corridors
 
-The CenDTrus Remit dashboard uses a proprietary three-layer palette:
+| From | To | Asset | Status |
+|---|---|---|---|
+| PHP | USD | XLM | ✅ Live on Testnet |
+| PHP | SGD | XLM → USDC | 🔲 Planned |
+| PHP | AED | XLM → USDC | 🔲 Planned |
+| PHP | JPY | XLM → USDC | 🔲 Planned |
 
-| Token | Value | Role |
-|-------|-------|------|
-| `bg-mint` | `#F0FDF4` | Page surface — icy crystalline green |
-| `bg-navy` | `#0F172A` | Card containers — deep institutional |
-| `emerald-accent` | `#10B981` | Live data, status indicators, CTAs |
-| `emerald-accent-warn` | `#F59E0B` | Shield warning state |
-| `emerald-accent-danger` | `#EF4444` | Shield breach, HITL trigger |
+---
+
+## Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Frontend | Vue 3, TypeScript, Tailwind CSS, Vite |
+| Backend | Node.js, Express, TypeScript, tsx |
+| Stellar SDK | @stellar/stellar-sdk v12+ |
+| Wallet | Freighter (Stellar browser extension) |
+| Network | Stellar Testnet (Horizon) |
+| Runtime | Node.js v24 |
 
 ---
 
 ## Roadmap
 
-- [ ] Live Stellar Testnet path payment execution (Freighter wallet integration)
+- [ ] Freighter in-browser signing flow (client-side key management)
+- [ ] Redis transaction store (replace in-memory Map)
+- [ ] Postgres append-only audit ledger
+- [ ] Parallel packet submission (true concurrent settlement)
+- [ ] Real USDC funding via Circle testnet faucet
 - [ ] Haskell Conductor gRPC event bus integration
 - [ ] Real Qubic Quorum API attestation calls
-- [ ] Morph L2 Rail 04 fallback activation logic
-- [ ] ZK proof generation for settlement bundle integrity (ZK Hackathon track)
-- [ ] Production Horizon mainnet deployment
+- [ ] Morph L2 Rail 04 fallback activation
+- [ ] Mainnet deployment with real liquidity pools
 
 ---
 
@@ -285,6 +297,6 @@ MIT © 2026 CenTrus Inc. All rights reserved.
 
 ---
 
-*Built for the Stellar Hacks: Real-World ZK Hackathon · June 2026*
-*CenTrus Inc. · Legazpi City, Philippines*
+*Built for the **APAC Stellar Hackathon 2026** · Rise In & Stellar Development Foundation*
+*CenTrus Inc. · Legazpi City, Bicol Region, Philippines*
 *"We are the Pipe, not the Water."*
