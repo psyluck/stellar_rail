@@ -46,7 +46,7 @@ export interface SlippageReading {
 export interface AtomicPacket {
   id: number               // Packet index (1–10)
   amount: number           // USD amount in this slice
-  asset: 'USDC' | 'RLUSD'
+  asset: 'USDC' | 'XLM'
   status: 'PENDING' | 'IN_FLIGHT' | 'SETTLED' | 'FAILED'
   txHash?: string          // Stellar transaction hash once confirmed
   settlementMs?: number    // Time-to-finality for this packet
@@ -177,7 +177,7 @@ export class StellarRepository {
     corridor: string
     sender: string
     recipient: string
-    asset: 'USDC' | 'RLUSD'
+    asset: 'USDC' | 'XLM'
   }): Promise<AtomicTransaction> {
     const { data } = await this.client.post<AtomicTransaction>('/tx/atomic-slice', payload)
     return data

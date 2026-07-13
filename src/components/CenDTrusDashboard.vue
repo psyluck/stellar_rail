@@ -481,7 +481,7 @@ const DEMO_RECIPIENT   = FREIGHTER_PUBKEY
 const headerKPIs = ref([
   { label: 'Total Settled (24H)', value: '$4.72M',  change: '+12.4% vs yesterday' },
   { label: 'Avg Finality',        value: '2.1s',    change: 'Sub-3s target ✓'     },
-  { label: 'Active Corridors',    value: '14',      change: 'PHP, SGD, AED +3'    },
+  { label: 'Active Corridors',    value: '1',      change: 'PHP→USD live · more planned'    },
   { label: 'Shield Breaches',     value: '0',       change: 'Last 24 hours'       },
 ])
 
@@ -505,7 +505,7 @@ const pipelineRails = ref([
   {
     rail: 'stellar',
     name: 'Stellar Network Rail 03',
-    description: 'Primary retail settlement — USDC & XLM native settlement',
+    description: 'Primary SME & mid-market settlement — USDC & XLM native settlement',
     status: 'ACTIVE',
     finality: '2.1s',
     tps: '1,200',
@@ -522,7 +522,7 @@ const pipelineRails = ref([
     tps: '1,500',
     queue: '3',
     volume24h: '$28.4M',
-    assets: ['RLUSD', 'XRP'],
+    assets: ['XRP'],
   },
 ])
 
