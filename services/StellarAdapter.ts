@@ -26,28 +26,30 @@ import {
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-/** Stellar Testnet Horizon endpoint */
-const HORIZON_URL = 'https://horizon-testnet.stellar.org'
+/** Stellar Mainnet Horizon endpoint */
+const HORIZON_URL = 'https://horizon.stellar.org'
 
-/** Stellar Testnet passphrase */
-const NETWORK_PASSPHRASE = Networks.TESTNET
+/** Stellar Mainnet network passphrase */
+const NETWORK_PASSPHRASE = Networks.MAINNET
 
 /**
- * Circle's USDC issuer on Stellar Testnet.
- * On mainnet this is: GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN
+ * Circle's USDC issuer on Stellar Mainnet.
+ * Verified issuer address — do not modify.
+ * Source: https://developers.circle.com/stablecoins/usdc-contract-addresses
  */
-const USDC_ISSUER_TESTNET = 'GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5'
+const USDC_ISSUER_MAINNET = 'GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN'
 
 /** Sovereign Shield ceiling — 1 basis point (0.01%) expressed as a ratio */
 const SLIPPAGE_CEILING_BP = 1.0
 
 // ── Asset Definitions ─────────────────────────────────────────────────────────
-// CenDTrus Remit currently supports XLM (native) and USDC (Circle testnet).
-// RLUSD integration is planned for mainnet once a live issuer is confirmed.
+// CenDTrus Remit supports XLM (native Stellar) and USDC (Circle Mainnet).
+// XLM is the primary settlement asset on Stellar Rail 03.
+// USDC activates at the institutional tier (CenTrus Sovereign) via Circle Arc.
 
 export const ASSETS = {
   XLM:  Asset.native(),
-  USDC: new Asset('USDC', USDC_ISSUER_TESTNET),
+  USDC: new Asset('USDC', USDC_ISSUER_MAINNET),
 } as const
 
 export type SupportedAsset = keyof typeof ASSETS
@@ -123,6 +125,10 @@ export interface AtomicPacketPayload {
  *
  * Encapsulates all @stellar/stellar-sdk interactions for the CenDTrus Remit
  * rail. Instantiated once as a singleton in server.ts.
+ *
+ * Assets supported: XLM (native), USDC (Circle Mainnet)
+ * Network: Stellar Mainnet
+ * Rail: Stellar Rail 03 — primary SME & mid-market settlement lane
  */
 export class StellarAdapter {
   private server: Horizon.Server
@@ -135,8 +141,7 @@ export class StellarAdapter {
 
   /**
    * Fetch all relevant asset balances for a given Stellar public key.
-   * Filters the Horizon response to only the assets CenDTrus Remit supports:
-   * XLM (native) and USDC (Circle issuer).
+   * Filters the Horizon response to only XLM and USDC (Circle Mainnet issuer).
    *
    * @param publicKey  Stellar G-address (56 characters)
    */
@@ -146,7 +151,7 @@ export class StellarAdapter {
     const account = await this.server.loadAccount(publicKey)
     const results: AccountBalance[] = []
 
-    // USD price oracle — in production, this pulls from a live price feed
+    // USD price oracle — replace with a live price feed in production
     const usdPrices: Record<string, number> = {
       USDC: 1.00,
       XLM:  0.11,   // Approximate — replace with live feed in production
@@ -156,32 +161,32 @@ export class StellarAdapter {
       if (balance.asset_type === 'native') {
         const bal = parseFloat(balance.balance)
         results.push({
-          asset: 'XLM',
-          balance: balance.balance,
+          asset:      'XLM',
+          balance:    balance.balance,
           balanceUSD: bal * usdPrices['XLM'],
-          issuer: null,
-          limit: null,
+          issuer:     null,
+          limit:      null,
         })
         continue
       }
 
-      // Type guard for credit assets (asset_type === 'credit_alphanum4' | 'credit_alphanum12')
+      // Type guard for credit assets
       if (
         balance.asset_type === 'credit_alphanum4' ||
         balance.asset_type === 'credit_alphanum12'
       ) {
         const code = balance.asset_code as SupportedAsset
 
-        // Only include assets CenDTrus Remit actively supports
+        // Only include USDC — the sole supported stablecoin on this rail
         if (!['USDC'].includes(code)) continue
 
         const bal = parseFloat(balance.balance)
         results.push({
-          asset: code,
-          balance: balance.balance,
+          asset:      code,
+          balance:    balance.balance,
           balanceUSD: bal * (usdPrices[code] ?? 1),
-          issuer: balance.asset_issuer,
-          limit: balance.limit,
+          issuer:     balance.asset_issuer,
+          limit:      balance.limit,
         })
       }
     }
@@ -195,8 +200,8 @@ export class StellarAdapter {
    * Query the Stellar DEX order book for a trading pair and compute
    * the expected slippage for a given trade size.
    *
-   * The Sovereign Shield will reject any transaction where the projected
-   * slippage exceeds 1 basis point (0.01%).
+   * The Sovereign Shield halts any transaction where projected slippage
+   * exceeds the 1 basis point (0.01%) ceiling and triggers Symphony HITL.
    *
    * @param sendAsset       Asset being sold (e.g. USDC)
    * @param destAsset       Asset being bought (e.g. XLM)
@@ -212,16 +217,16 @@ export class StellarAdapter {
       .call()
 
     // Compute mid-price from top-of-book
-    const topAsk = parseFloat(orderBook.asks[0]?.price ?? '1')
-    const topBid = parseFloat(orderBook.bids[0]?.price ?? '1')
+    const topAsk   = parseFloat(orderBook.asks[0]?.price ?? '1')
+    const topBid   = parseFloat(orderBook.bids[0]?.price ?? '1')
     const midPrice = (topAsk + topBid) / 2
 
-    // Simulate walking the order book to fill tradeAmountUSD
-    let filled = 0
+    // Walk the order book to simulate filling tradeAmountUSD
+    let filled        = 0
     let weightedPrice = 0
     for (const ask of orderBook.asks) {
       const askPrice  = parseFloat(ask.price)
-      const askAmount = parseFloat(ask.amount) * askPrice  // in USD
+      const askAmount = parseFloat(ask.amount) * askPrice
       const fillNow   = Math.min(tradeAmountUSD - filled, askAmount)
       weightedPrice  += fillNow * askPrice
       filled         += fillNow
@@ -230,9 +235,9 @@ export class StellarAdapter {
 
     const avgExecutionPrice = filled > 0 ? weightedPrice / filled : midPrice
     const slippageRatio     = Math.abs((avgExecutionPrice - midPrice) / midPrice)
-    const basisPoints       = slippageRatio * 10_000  // convert to basis points
+    const basisPoints       = slippageRatio * 10_000
 
-    // Estimate total liquidity depth from asks within 5bp of mid
+    // Estimate liquidity depth from asks within 5bp of mid
     const liquidityDepth = orderBook.asks
       .filter((a) => Math.abs(parseFloat(a.price) - midPrice) / midPrice < 0.0005)
       .reduce((sum, a) => sum + parseFloat(a.amount) * parseFloat(a.price), 0)
@@ -244,7 +249,7 @@ export class StellarAdapter {
         ? 'WARN'
         : 'SECURE'
 
-    const aiAssessment = this.generateAigarthAssessment(
+    const aiAssessment = this.generateShieldAssessment(
       basisPoints,
       liquidityDepth,
       tradeAmountUSD,
@@ -262,10 +267,10 @@ export class StellarAdapter {
   }
 
   /**
-   * Generate an Aigarth-style natural-language pool assessment.
-   * In production, this would be a call to the Aigarth inference engine.
+   * Generate a Sovereign Shield natural-language liquidity assessment.
+   * In production, this integrates with the Aigarth inference engine.
    */
-  private generateAigarthAssessment(
+  private generateShieldAssessment(
     basisPoints: number,
     liquidityDepth: number,
     tradeAmountUSD: number,
@@ -276,22 +281,22 @@ export class StellarAdapter {
 
     if (status === 'SECURE') {
       return (
-        `Aigarth analysis complete. Stellar DEX pool depth: $${depthM}M within ±5bp of mid. ` +
+        `Sovereign Shield: SECURE. Stellar DEX pool depth $${depthM}M within ±5bp of mid. ` +
         `Projected slippage for $${tradeAmountUSD.toLocaleString()} order: ${bpStr}bp — ` +
-        `well inside the 1bp Sovereign Shield ceiling. Settlement confidence: HIGH. No HITL trigger required.`
+        `well inside the 1bp ceiling. Settlement confidence: HIGH. No HITL trigger required.`
       )
     }
     if (status === 'WARN') {
       return (
-        `Aigarth WARNING: Slippage reading at ${bpStr}bp — approaching the 1bp ceiling. ` +
-        `Pool depth has thinned to $${depthM}M. Recommend splitting order or waiting for liquidity ` +
-        `recovery. HITL standby: ACTIVE. Monitoring at 500ms intervals.`
+        `Sovereign Shield: WARN. Slippage reading at ${bpStr}bp — approaching the 1bp ceiling. ` +
+        `Pool depth has thinned to $${depthM}M. Recommend splitting order or waiting for ` +
+        `liquidity recovery. HITL standby: ACTIVE. Monitoring at 500ms intervals.`
       )
     }
     return (
-      `Aigarth BREACH ALERT: Slippage of ${bpStr}bp EXCEEDS the 1bp Sovereign Shield ceiling. ` +
+      `Sovereign Shield: BREACH. Slippage of ${bpStr}bp EXCEEDS the 1bp ceiling. ` +
       `Transaction HALTED. Pool depth critically low at $${depthM}M. ` +
-      `HITL escalation initiated. Human reviewer override required to proceed.`
+      `Symphony HITL escalation initiated. Client compliance officer override required.`
     )
   }
 
@@ -300,13 +305,11 @@ export class StellarAdapter {
   /**
    * Build, sign, and submit a Path Payment Strict Send transaction.
    *
-   * Path payments allow CenDTrus Remit to route through intermediate assets
-   * on the Stellar DEX, ensuring the recipient receives their preferred
-   * stable asset regardless of source.
+   * Routes through intermediate assets on the Stellar DEX, ensuring the
+   * recipient receives their preferred asset regardless of source.
    *
-   * ⚠️  Non-custodial constraint: The source keypair is provided by the
-   *     caller and never stored. Keys exist in memory only for the duration
-   *     of this function call.
+   * Non-custodial: sourceKeypair is never stored. Keys exist in memory
+   * only for the duration of this function call.
    */
   async submitPathPayment(params: PathPaymentParams): Promise<TransactionResult> {
     const startTime = Date.now()
@@ -319,7 +322,7 @@ export class StellarAdapter {
       )
 
       const txBuilder = new TransactionBuilder(sourceAccount, {
-        fee: BASE_FEE,
+        fee:               BASE_FEE,
         networkPassphrase: NETWORK_PASSPHRASE,
       })
 
@@ -371,13 +374,14 @@ export class StellarAdapter {
    * submitted directly to Horizon. The Haskell Conductor orchestrates the
    * 10-packet pipeline; this method handles one packet at a time.
    *
-   * Set testnetSimulate = false to hit real Horizon (default for production).
+   * simulate = true  → demo mode, no real funds sent, mock hash returned
+   * simulate = false → live Stellar Mainnet submission via Horizon
    */
   async submitAtomicPacket(
     packet: AtomicPacketPayload,
-    testnetSimulate: boolean = true,
+    simulate: boolean = true,
   ): Promise<TransactionResult> {
-    if (testnetSimulate) {
+    if (simulate) {
       const settlementMs = 1800 + Math.floor(Math.random() * 800)
       await sleep(settlementMs)
       return {
@@ -389,7 +393,7 @@ export class StellarAdapter {
       }
     }
 
-    // Use direct payment — source and destination asset are the same (XLM)
+    // Live Stellar Mainnet payment
     const startTime = Date.now()
     try {
       const sourceAccount = await this.server.loadAccount(
@@ -397,7 +401,7 @@ export class StellarAdapter {
       )
 
       const tx = new TransactionBuilder(sourceAccount, {
-        fee: BASE_FEE,
+        fee:               BASE_FEE,
         networkPassphrase: NETWORK_PASSPHRASE,
       })
         .addOperation(
@@ -436,14 +440,14 @@ export class StellarAdapter {
   /**
    * Simulate a Qubic Quorum external audit proof submission.
    *
-   * In the production architecture, this call is relayed by the Haskell
-   * Conductor to the Qubic 676-Computor network, which attests to the
-   * settlement integrity of the completed transaction bundle.
+   * In production, this call is relayed by the Haskell Conductor to the
+   * Qubic 676-Computor network, which attests to the settlement integrity
+   * of the completed transaction bundle.
    *
-   * For CenDTrus Remit, Qubic attestation is best-effort.
-   * For CenTrus Sovereign, it is mandatory before ledger finality.
+   * CenDTrus Remit (Stellar Rail 03): best-effort attestation.
+   * CenTrus Sovereign (institutional tier): mandatory before finality.
    *
-   * @param transactionId  The CenDTrus internal transaction ID
+   * @param transactionId  CenDTrus internal transaction ID
    * @param txHashes       Array of Stellar tx hashes (one per packet)
    */
   async simulateQubicAudit(
@@ -495,7 +499,7 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
-/** Generate a mock Stellar transaction hash for testnet simulation */
+/** Generate a mock Stellar transaction hash for simulation mode */
 function generateMockTxHash(): string {
   const chars = '0123456789abcdef'
   return Array.from(
