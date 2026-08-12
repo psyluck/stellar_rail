@@ -24,13 +24,14 @@ export interface AssetBalance {
 
 /** Aggregate pipeline telemetry snapshot */
 export interface PipelineStatus {
-  rail: 'stellar' | 'ripple-odl'
+  rail: 'stellar' | 'circle-usdc-arc'
   status: 'ACTIVE' | 'DEGRADED' | 'OFFLINE'
   tps: number              // Transactions per second
   avgSettlementMs: number  // Average time-to-finality in milliseconds
   pendingQueue: number     // Transactions waiting in the pipeline
   totalSettled24h: number  // Total volume settled (USD) in last 24 hours
 }
+
 
 /** Sovereign Shield slippage reading from Aigarth */
 export interface SlippageReading {

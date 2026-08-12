@@ -513,17 +513,18 @@ const pipelineRails = ref([
     volume24h: '$4.1M',
     assets: ['USDC', 'XLM'],
   },
-  {
-    rail: 'ripple-odl',
-    name: 'Ripple ODL Rail 01 (Sovereign)',
-    description: 'Institutional overflow — read-only visibility from Remit tier',
+    {
+    rail: 'circle-usdc-arc',
+    name: 'Circle USDC Arc Network',
+    description: 'Secondary multi-rail liquidity lane — cross-network USDC settlement',
     status: 'ACTIVE',
-    finality: '3–5s',
-    tps: '1,500',
-    queue: '3',
-    volume24h: '$28.4M',
-    assets: ['XRP'],
+    finality: '3.5s',
+    tps: '1,535',
+    queue: '6',
+    volume24h: '$28.6M',
+    assets: ['USDC'],
   },
+
 ])
 
 async function fetchPipelineStatus() {

@@ -152,14 +152,15 @@ app.get('/api/pipeline-status', (_req: Request, res: Response) => {
       pendingQueue: Math.floor(Math.random() * 5),
       totalSettled24h: 4_100_000 + Math.floor(Math.random() * 200_000),
     },
-    {
-      rail: 'ripple-odl',
+        {
+      rail: 'circle-usdc-arc',
       status: 'ACTIVE',
       tps: 1400 + Math.floor(Math.random() * 200),
       avgSettlementMs: 3200 + Math.floor(Math.random() * 600),
       pendingQueue: Math.floor(Math.random() * 10),
       totalSettled24h: 28_000_000 + Math.floor(Math.random() * 1_000_000),
     },
+
   ])
 })
 
@@ -420,10 +421,11 @@ app.listen(PORT, () => {
 ║  Server running on http://localhost:${PORT}                 ║
 ║  Network:  Stellar Testnet (Horizon)                     ║
 ║  Rails:    Stellar Rail 03 (primary)                     ║
-║            Ripple ODL Rail 01 (read-only visibility)     ║
+║            Circle USDC Arc Network (secondary)           ║
 ╚══════════════════════════════════════════════════════════╝
   `)
 })
+
 
 // ── Utilities ─────────────────────────────────────────────────────────────────
 

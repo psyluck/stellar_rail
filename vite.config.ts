@@ -2,6 +2,7 @@
 // CenDTrus Remit — Vite Configuration
 // Configures the Vue 3 + TypeScript dev server with a proxy to the
 // Express backend running on port 3001, avoiding CORS issues in dev.
+// Supports multi-page entry parsing: index.html (landing) & dashboard.html.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { defineConfig } from 'vite'
@@ -39,6 +40,12 @@ export default defineConfig({
     outDir: 'dist',
     sourcemap: true,
     rollupOptions: {
+      input: {
+        // Main landing page now acts as the root entry point (index.html)
+        main: path.resolve(__dirname, 'index.html'),
+        // Core Web3 application portal moves cleanly to dashboard.html
+        dashboard: path.resolve(__dirname, 'dashboard.html')
+      },
       output: {
         // Chunk vendor libraries separately for better caching
         manualChunks: {
