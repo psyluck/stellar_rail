@@ -138,9 +138,10 @@ app.get('/api/balances', async (req: Request, res: Response) => {
 // ── GET /api/pipeline-status ──────────────────────────────────────────────────
 /**
  * Returns operational telemetry for both the Stellar rail (Rail 03)
- * and a read-only view of the Ripple ODL rail (Rail 01, Sovereign).
+ * and the Circle USDC Arc Network liquidity lane.
  */
 app.get('/api/pipeline-status', (_req: Request, res: Response) => {
+
   // In production, these metrics are streamed from the Haskell Conductor
   // via an internal gRPC event bus. For testnet, we return live-ish data.
   res.json([
