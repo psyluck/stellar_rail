@@ -4,6 +4,7 @@
 // Pure TypeScript service that wraps @stellar/stellar-sdk v12+.
 // Responsibilities:
 //   • Query Horizon for live account balances (USDC, XLM)
+//   • Load source accounts for external XDR construction (institutional rail)
 //   • Prepare and submit direct payment envelopes
 //   • Calculate real-time slippage from Stellar DEX order books
 //   • Simulate Qubic audit proof submissions
@@ -30,7 +31,7 @@ import {
 const HORIZON_URL = 'https://horizon.stellar.org'
 
 /** Stellar Mainnet network passphrase */
-const NETWORK_PASSPHRASE = Networks.MAINNET
+const NETWORK_PASSPHRASE = Networks.PUBLIC
 
 /**
  * Circle's USDC issuer on Stellar Mainnet.
@@ -192,6 +193,30 @@ export class StellarAdapter {
     }
 
     return results
+  }
+
+  // ── Public Account Loader (Institutional XDR Rail) ────────────────────────
+
+  /**
+   * Load a Stellar account record from Horizon by public key.
+   *
+   * Exposed as a public method so that server.ts can obtain the current
+   * sequence number for unsigned XDR construction without a private key.
+   * The caller (POST /api/institutional/build-xdr) passes the returned
+   * AccountResponse directly into TransactionBuilder — no signing occurs
+   * inside this adapter.
+   *
+   * Throws a Horizon error (including HTTP 404) if the account does not
+   * exist or has not been funded on the target network. The caller in
+   * server.ts is responsible for mapping that to the appropriate HTTP
+   * response and Friendbot hint.
+   *
+   * @param publicKey  Stellar G-address (56 characters)
+   * @returns          Horizon AccountResponse with live sequence number
+   */
+  async loadAccount(publicKey: string): Promise<Horizon.AccountResponse> {
+    this.validatePublicKey(publicKey)
+    return this.server.loadAccount(publicKey)
   }
 
   // ── Order Book & Slippage ──────────────────────────────────────────────────
